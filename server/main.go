@@ -49,18 +49,13 @@ func run() (err error) {
 		srvErr <- srv.ListenAndServe()
 	}()
 
-	// Wait for interruption.
 	select {
 	case err = <-srvErr:
-		// Error when starting HTTP server.
 		return
 	case <-ctx.Done():
-		// Wait for first CTRL+C.
-		// Stop receiving signal notifications as soon as possible.
 		stop()
 	}
 
-	// When Shutdown is called, ListenAndServe immediately returns ErrServerClosed.
 	err = srv.Shutdown(context.Background())
 	return
 }
@@ -73,6 +68,7 @@ func newHTTPHandler() http.Handler {
 	handleFunc := func(pattern string, handlerFunc func(http.ResponseWriter, *http.Request)) {
 		// Configure the "http.route" for the HTTP instrumentation.
 		handler := otelhttp.WithRouteTag(pattern, http.HandlerFunc(handlerFunc))
+		handler = logRequest(handler)
 		mux.Handle(pattern, handler)
 	}
 

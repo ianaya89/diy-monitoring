@@ -42,3 +42,8 @@ services:
       - "3000:3000"
     environment:
       - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+
+  goapp:
+    build: ./server
+    ports:
+      - "8080:8080"
