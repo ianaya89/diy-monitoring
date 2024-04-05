@@ -3,26 +3,21 @@ services:
   otelcol:
     image: otel/opentelemetry-collector-contrib:0.74.0
     container_name: otel-col
-    deploy:
-      resources:
-        limits:
-          memory: 125M
     restart: unless-stopped
     command: ["--config=/etc/otelcol-config.yml"]
     volumes:
       - ./otel/otelcol-config.yml:/etc/otelcol-config.yml
     ports:
-      - "4317:4317"     # OTLP over gRPC receiver
-      - "4318:4318"     # OTLP over HTTP receiver
-      - "9464"          # Prometheus exporter
-      - "8888"          # metrics endpoint
+      - "4317:4317"  # OTLP over gRPC receiver
+      - "4318:4318"  # OTLP over HTTP receiver
+      - "8888:8888"  # Metrics endpoint
 
   clickhouse:
     image: clickhouse/clickhouse-server:head
     container_name: clickhouse
     ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:8143:8143"
+      - "9000:9000"
+      - "8143:8143"
     ulimits:
       nofile:
         soft: 262144
@@ -31,10 +26,6 @@ services:
   grafana:
     image: grafana/grafana:9.4.3
     container_name: grafana
-    deploy:
-      resources:
-        limits:
-          memory: 75M
     volumes:
       - ./grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./grafana/provisioning/:/etc/grafana/provisioning/
