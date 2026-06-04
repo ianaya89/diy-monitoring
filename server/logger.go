@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -9,12 +9,13 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
-type LogEntry struct {
-	Timestamp      string `json:"Timestamp"`
-	SeverityText   string `json:"SeverityText"`
-	Body           string `json:"Body"`
-	ServiceName    string `json:"ServiceName"`
-	SeverityNumber int    `json:"SeverityNumber"`
+type requestLog struct {
+	RemoteAddr string `json:"remote_addr"`
+	Method     string `json:"method"`
+	URI        string `json:"uri"`
+	Duration   string `json:"duration"`
+	TraceID    string `json:"trace_id"`
+	SpanID     string `json:"span_id"`
 }
 
 func logRequest(next http.Handler) http.Handler {
@@ -24,14 +25,23 @@ func logRequest(next http.Handler) http.Handler {
 		ctx := r.Context()
 		span := trace.SpanFromContext(ctx)
 		spanCtx := span.SpanContext()
-		traceID := spanCtx.TraceID().String()
-		spanID := spanCtx.SpanID().String()
 
 		next.ServeHTTP(w, r)
 
-		logMessage := fmt.Sprintf(`{"remote_addr": "%s", "method": "%s", "uri": "%s", "duration": "%v", "trace_id": "%s", "span_id": "%s"}`,
-			r.RemoteAddr, r.Method, r.URL.Path, time.Since(start), traceID, spanID)
+		entry := requestLog{
+			RemoteAddr: r.RemoteAddr,
+			Method:     r.Method,
+			URI:        r.URL.Path,
+			Duration:   time.Since(start).String(),
+			TraceID:    spanCtx.TraceID().String(),
+			SpanID:     spanCtx.SpanID().String(),
+		}
 
-		log.Print(logMessage)
+		line, err := json.Marshal(entry)
+		if err != nil {
+			log.Printf("log marshal failed: %v\n", err)
+			return
+		}
+		log.Print(string(line))
 	})
 }

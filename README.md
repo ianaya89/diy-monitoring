@@ -4,6 +4,8 @@ OTel 💛 ClickHouse 💛 Grafana
 
 > This repository contains a demonstration setup for an observability stack using OpenTelemetry Collector (OTel Collector), ClickHouse, and Grafana. This stack is orchestrated with Docker Compose, making it easy to deploy and manage the components.
 
+> ⚠️ **Demo only — do not deploy as-is.** Grafana runs with anonymous admin access and the login form disabled, ClickHouse and Postgres use default/empty credentials, and nothing is behind TLS or a reverse proxy. This stack is for local learning, not production.
+
 ## Overview
 The setup includes the following components:
 
@@ -12,7 +14,41 @@ The setup includes the following components:
 - **Grafana**: An open-source platform for monitoring and observability. It's used here to visualize metrics and logs stored in ClickHouse.
 - **Go Application**: A sample Go application to generate telemetry data.
 
-![](architecture.png)
+## Architecture
+
+```
+   ┌──────────────────┐        ┌──────────────────┐
+   │   Go App (dice)  │        │   telemetrygen   │
+   │   :8080          │        │   (CLI generator)│
+   └────────┬─────────┘        └────────┬─────────┘
+            │  OTLP traces              │  OTLP logs/metrics/traces
+            │  (HTTP :4318)             │  (gRPC :4317 / HTTP :4318)
+            └────────────┬──────────────┘
+                         ▼
+              ┌─────────────────────────┐
+              │   OTel Collector        │
+              │   receivers: otlp       │
+              │   processors: mem_limit,│
+              │               batch     │
+              │   exporters: clickhouse │
+              └────────────┬────────────┘
+                           │  native :9000 (lz4)
+                           ▼
+              ┌─────────────────────────┐
+              │   ClickHouse            │
+              │   otel_traces           │
+              │   otel_logs             │
+              │   otel_metrics          │
+              │   HTTP :8123 / TCP :9000│
+              └────────────┬────────────┘
+                           │  SQL (grafana-clickhouse-datasource)
+                           ▼
+              ┌─────────────────────────┐
+              │   Grafana :3000         │
+              │   dashboards + explore  │
+              └─────────────────────────┘
+```
+
 
 
 ## Prerequisites
@@ -23,7 +59,7 @@ The setup includes the following components:
 ## Configuration
 The `docker-compose.yml` file orchestrates the deployment of these services. Each service is configured as follows:
 
-- **OTel Collector**: Custom configuration file mounted from `./otel/otelcol-config.yml.` Exposes ports for OTLP over gRPC and HTTP receivers, Prometheus exporter, and metrics endpoint.
+- **OTel Collector**: Custom configuration file mounted from `./otel/otelcol-config.yml.` Exposes ports for OTLP over gRPC (4317) and HTTP (4318) receivers, plus the collector's internal metrics endpoint (8888).
 - **ClickHouse**: Limits on open files set for performance. Exposes its native interface and HTTP interface on localhost.
 - **Grafana**: Memory limit set and custom grafana.ini configuration file mounted. Grafana's provisioning directory is also mounted to automate datasource and dashboard configurations. The ClickHouse datasource plugin is installed by default.
 - **Go Application**: A simple server application to generate telemetry data. Exposed on port 8080.
@@ -62,12 +98,12 @@ docker-compose up -d
 
     ```bash
     while true; do
-      curl http:localhost:8080/rolldice
+      curl http://localhost:8080/rolldice
       sleep 0.1
     done
     ```
 
-> 🚨 For now, it only supports generating traces. You can extend it to generate metrics and logs as well.
+> 🚨 The sample Go app emits **traces** via OTLP to the collector. It also writes structured JSON request logs to stdout (including trace_id/span_id for correlation), but those logs are NOT shipped to the collector. Metrics are not yet implemented — you can extend the app to emit metrics and ship logs via OTLP.
 
 
 ### Accessing Grafana
