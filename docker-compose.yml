@@ -26,6 +26,7 @@ services:
         hard: 262144
     volumes:
       - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/users.d/network.xml:/etc/clickhouse-server/users.d/network.xml:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8123/ping"]
       interval: 5s

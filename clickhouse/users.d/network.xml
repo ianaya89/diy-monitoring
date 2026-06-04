@@ -1,0 +1,15 @@
+<clickhouse>
+  <!--
+    The official ClickHouse image ships users.d/default-user.xml which locks the
+    `default` user to localhost (::1 / 127.0.0.1) when no password is set. That
+    blocks the OTel Collector, which connects over the Docker network. Re-open it
+    to any host for this local demo. DEMO ONLY — not for production.
+  -->
+  <users>
+    <default>
+      <networks replace="replace">
+        <ip>::/0</ip>
+      </networks>
+    </default>
+  </users>
+</clickhouse>
