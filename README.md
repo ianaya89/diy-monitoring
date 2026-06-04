@@ -103,7 +103,12 @@ docker-compose up -d
     done
     ```
 
-> 🚨 The sample Go app emits **traces** via OTLP to the collector. It also writes structured JSON request logs to stdout (including trace_id/span_id for correlation), but those logs are NOT shipped to the collector. Metrics are not yet implemented — you can extend the app to emit metrics and ship logs via OTLP.
+> 🚨 The sample Go app exports the full triad over OTLP to the collector:
+> - **traces** — one span per request, plus `roll.value` / error status attributes;
+> - **metrics** — a `dice.rolls` counter (by outcome) and the automatic `otelhttp` server metrics (request duration/count);
+> - **logs** — structured request logs via the `otelslog` bridge, auto-correlated with the active trace (`trace_id`/`span_id`).
+>
+> All three land in ClickHouse as `otel_traces`, `otel_metrics`, and `otel_logs`.
 
 
 ### Accessing Grafana
