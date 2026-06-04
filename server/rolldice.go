@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"io"
 	"log"
 	"math/rand"
@@ -10,6 +11,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 var (
@@ -21,16 +23,17 @@ func rolldice(w http.ResponseWriter, r *http.Request) {
 }
 
 func rolldiceSlow(w http.ResponseWriter, r *http.Request) {
-	performRoll(w, r, "roll", 3*time.Second)
+	performRoll(w, r, "roll.slow", 3*time.Second)
 }
 
 func rolldiceError(w http.ResponseWriter, r *http.Request) {
-	_, span := tracer.Start(r.Context(), "roll")
+	_, span := tracer.Start(r.Context(), "roll.error")
 	defer span.End()
 
 	message := "Internal Server Error"
-	rollValueAttr := attribute.String("error", message)
-	span.SetAttributes(rollValueAttr)
+	err := errors.New(message)
+	span.RecordError(err)
+	span.SetStatus(codes.Error, message)
 
 	http.Error(w, message, http.StatusInternalServerError)
 }

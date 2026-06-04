@@ -1,0 +1,4 @@
+.DS_Store
+db-data/
+clickhouse-data/
+server/dice
