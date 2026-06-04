@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func main() {
@@ -34,6 +36,11 @@ func run() (err error) {
 	defer func() {
 		err = errors.Join(err, otelShutdown(context.Background()))
 	}()
+
+	// Register metric instruments now that the meter provider is live.
+	if err = setupInstruments(); err != nil {
+		return
+	}
 
 	// Start HTTP server.
 	srv := &http.Server{
@@ -66,10 +73,12 @@ func newHTTPHandler() http.Handler {
 	// handleFunc is a replacement for mux.HandleFunc
 	// which enriches the handler's HTTP instrumentation with the pattern as the http.route.
 	handleFunc := func(pattern string, handlerFunc func(http.ResponseWriter, *http.Request)) {
-		// Configure the "http.route" for the HTTP instrumentation.
-		handler := otelhttp.WithRouteTag(pattern, http.HandlerFunc(handlerFunc))
-		handler = logRequest(handler)
-		mux.Handle(pattern, handler)
+		// Set the "http.route" attribute on the active span (otelhttp dropped WithRouteTag).
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			trace.SpanFromContext(r.Context()).SetAttributes(semconv.HTTPRoute(pattern))
+			handlerFunc(w, r)
+		})
+		mux.Handle(pattern, logRequest(handler))
 	}
 
 	// Register handlers.
